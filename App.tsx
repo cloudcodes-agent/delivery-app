@@ -343,6 +343,10 @@ const App: React.FC = () => {
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    // Guard: prevent double updates if local state already matches
+    const currentOrder = orders.find(o => o.id === orderId);
+    if (currentOrder?.status === status) return;
+
     // Optimistic Update for Order Status
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
 

@@ -16,6 +16,7 @@ interface StorePortalProps {
 
 const StorePortal: React.FC<StorePortalProps> = ({ orders, users, onCreate, onSelectBidder, onPayEscrow, onOpenChat, onUpdateStatus, onReview }) => {
   const [showCreate, setShowCreate] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [productName, setProductName] = useState('');
   const [productPrice, setProductPrice] = useState('');
   const [deliveryFee, setDeliveryFee] = useState('');
@@ -295,10 +296,14 @@ const StorePortal: React.FC<StorePortalProps> = ({ orders, users, onCreate, onSe
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-800 transition-colors space-y-4">
                     {order.status === OrderStatus.DELIVERED && (
                       <button 
-                        onClick={() => onUpdateStatus(order.id, OrderStatus.COMPLETED)}
-                        className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black hover:bg-emerald-700 transition shadow-xl active:scale-[0.98]"
+                        onClick={() => {
+                          setProcessingId(order.id);
+                          onUpdateStatus(order.id, OrderStatus.COMPLETED);
+                        }}
+                        disabled={processingId === order.id}
+                        className={`w-full py-4 rounded-2xl font-black transition shadow-xl active:scale-[0.98] ${processingId === order.id ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                       >
-                        Confirm Receipt & Release Funds
+                        {processingId === order.id ? 'Processing...' : 'Confirm Receipt & Release Funds'}
                       </button>
                     )}
                     {order.status === OrderStatus.COMPLETED && order.deliveryGuyId && (
