@@ -343,6 +343,9 @@ const App: React.FC = () => {
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    // Optimistic Update for Order Status
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+
     await supabase.from('orders').update({ status }).eq('id', orderId);
     
     if (status === OrderStatus.COMPLETED) {
@@ -350,6 +353,21 @@ const App: React.FC = () => {
       if (order) {
         const selectedBid = order.bids.find(b => b.id === order.selectedBidId);
         const fee = selectedBid ? selectedBid.amount : order.deliveryFeeOffer;
+
+        // Optimistic Wallet Update for Current User (if Store)
+        if (currentUser && currentUser.id === order.storeId && currentUser.wallet) {
+             setCurrentUser(prev => {
+                if (!prev || !prev.wallet) return prev;
+                return {
+                    ...prev,
+                    wallet: {
+                        ...prev.wallet,
+                        balance: prev.wallet.balance + order.productPrice,
+                        escrowHeld: prev.wallet.escrowHeld - fee
+                    }
+                };
+             });
+        }
 
         // Payout Logic (Note: In production, use RPC/Transactions for safety)
         
@@ -379,6 +397,7 @@ const App: React.FC = () => {
         }
       }
     }
+    fetchAndSetData();
   };
 
   const submitReview = async (orderId: string, targetUserId: string, rating: number, comment: string) => {
@@ -393,9 +412,7 @@ const App: React.FC = () => {
       rating,
       comment
     });
-    // The local state updates (setUsers, setOrders) are removed.
-    // The realtime subscription on the 'reviews' table will trigger a data refetch
-    // and update the UI automatically with the correct "reviewed" status.
+    fetchAndSetData();
   };
 
   const sendMessage = async (orderId: string, text: string) => {
@@ -405,6 +422,7 @@ const App: React.FC = () => {
       senderId: currentUser.id,
       text
     });
+    fetchAndSetData();
   };
 
   const handleAuth = (user: User) => {
