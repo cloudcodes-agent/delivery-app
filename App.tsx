@@ -394,7 +394,7 @@ const App: React.FC = () => {
           const { data: riderWallet } = await supabase.from('wallets').select('*').eq('user_id', order.deliveryGuyId).single();
           if (riderWallet) {
             await supabase.from('wallets').update({
-              balance: Number(riderWallet.balance) + order.productPrice + fee,
+              balance: Number(riderWallet.balance) + fee, // Rider gets Fee. Product Price (collateral) is transferred to Store.
               escrow: Number(riderWallet.escrow) - order.productPrice // Release collateral
             }).eq('user_id', order.deliveryGuyId);
           }
