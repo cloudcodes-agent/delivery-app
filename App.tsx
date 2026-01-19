@@ -6,64 +6,12 @@ import DeliveryPortal from './components/DeliveryPortal';
 import Navbar from './components/Navbar';
 import ChatModal from './components/ChatModal';
 import AuthPortal from './components/AuthPortal';
-
-const INITIAL_USERS: User[] = [
-  {
-    id: 'u_store_1',
-    email: 'store@demo.com',
-    password: 'password',
-    name: 'Gourmet Bakery',
-    role: UserRole.STORE,
-    wallet: {
-      balance: 1000,
-      escrowHeld: 0,
-      transactions: [{ id: 't1', amount: 1000, type: 'IN', description: 'Seed Funding', timestamp: Date.now() }]
-    },
-    reviews: []
-  },
-  {
-    id: 'u_rider_1',
-    email: 'rider@demo.com',
-    password: 'password',
-    name: 'John Rider',
-    role: UserRole.DELIVERY,
-    wallet: {
-      balance: 500,
-      escrowHeld: 0,
-      transactions: [{ id: 't2', amount: 500, type: 'IN', description: 'Seed Funding', timestamp: Date.now() }]
-    },
-    reviews: []
-  }
-];
-
-const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'ord_1',
-    storeId: 'u_store_1',
-    storeName: 'Gourmet Bakery',
-    productName: 'Custom Celebration Cake',
-    productPrice: 45.00,
-    deliveryFeeOffer: 10.00,
-    deliveryAddress: '123 Baker Street, London',
-    clientName: 'Sarah Jenkins',
-    clientPhone: '+44 7700 900077',
-    status: OrderStatus.BIDDING,
-    bids: [
-      { id: 'bid_1', deliveryGuyId: 'dg_external', deliveryGuyName: 'Alex Swift', amount: 8.50, timestamp: Date.now() - 10000 }
-    ],
-    messages: [],
-    storeEscrowPaid: false,
-    deliveryEscrowPaid: false,
-    createdAt: Date.now() - 3600000,
-    storeReviewed: false,
-    riderReviewed: false
-  }
-];
+import { supabase } from './supabaseClient';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [activeChatOrderId, setActiveChatOrderId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
@@ -85,6 +33,41 @@ const App: React.FC = () => {
       if (updatedUser) setCurrentUser(updatedUser);
     }
   }, [users, currentUser?.id]);
+
+  // Initialize Supabase Auth Listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUser({
+          id: session.user.id,
+          email: session.user.email!,
+          password: '', // Managed by Supabase
+          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
+          role: (session.user.user_metadata.role as UserRole) || UserRole.DELIVERY,
+          wallet: { balance: 0, escrowHeld: 0, transactions: [] },
+          reviews: []
+        });
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setCurrentUser({
+          id: session.user.id,
+          email: session.user.email!,
+          password: '', // Managed by Supabase
+          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
+          role: (session.user.user_metadata.role as UserRole) || UserRole.DELIVERY,
+          wallet: { balance: 0, escrowHeld: 0, transactions: [] },
+          reviews: []
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const updateWallet = (userId: string, amount: number, type: 'IN' | 'OUT', description: string, escrowChange: number = 0) => {
     setUsers(prev => prev.map(u => {
@@ -274,7 +257,8 @@ const App: React.FC = () => {
     setUsers(prev => [...prev, newUser]);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
   };
 

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserRole, User } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface AuthPortalProps {
   onAuth: (user: User) => void;
@@ -18,43 +19,32 @@ const AuthPortal: React.FC<AuthPortalProps> = ({ onAuth, existingUsers, onSignup
   const [role, setRole] = useState<UserRole>(UserRole.STORE);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (isLogin) {
-      const user = existingUsers.find(u => u.email === email && u.password === password);
-      if (user) {
-        onAuth(user);
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
       } else {
-        setError('Invalid email or password');
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name, role }
+          }
+        });
+        if (error) throw error;
+        if (data.user && !data.session) {
+          setError('Please check your email for the confirmation link.');
+        }
       }
-    } else {
-      if (existingUsers.some(u => u.email === email)) {
-        setError('Email already exists');
-        return;
-      }
-      const newUser: User = {
-        id: `u_${Math.random().toString(36).substr(2, 9)}`,
-        email,
-        password,
-        name,
-        role,
-        wallet: {
-          balance: role === UserRole.STORE ? 1000 : 500,
-          escrowHeld: 0,
-          transactions: [{
-            id: 't_init',
-            amount: role === UserRole.STORE ? 1000 : 500,
-            type: 'IN',
-            description: 'Welcome Bonus',
-            timestamp: Date.now()
-          }]
-        },
-        reviews: []
-      };
-      onSignup(newUser);
-      onAuth(newUser);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
