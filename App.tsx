@@ -8,6 +8,7 @@ import ChatModal from './components/ChatModal';
 import AuthPortal from './components/AuthPortal';
 // import { supabase } from './supabaseClient';
 import { Orders as OrdersAPI, Bids as BidsAPI, Wallets as WalletsAPI, Messages as MessagesAPI, Reviews as ReviewsAPI } from './src/api';
+import { getSocket } from './src/realtime';
 import { translations } from './translations';
 // import { translations } from './lib/translations';
 
@@ -129,9 +130,17 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchAndSetData();
 
-    // Realtime removed for now. Polling could be added.
-    const id = setInterval(fetchAndSetData, 10000);
-    return () => { clearInterval(id); };
+    const id = setInterval(fetchAndSetData, 15000);
+    const socket = getSocket(import.meta.env.VITE_API_BASE || 'http://localhost:3000');
+    const refetch = () => fetchAndSetData();
+    socket.on('orders.created', refetch);
+    socket.on('orders.updated', refetch);
+    socket.on('bids.created', refetch);
+    socket.on('bids.updated', refetch);
+    socket.on('wallets.updated', refetch);
+    socket.on('messages.created', refetch);
+    socket.on('reviews.created', refetch);
+    return () => { clearInterval(id); socket.close(); };
   }, [fetchAndSetData]);
 
   // Sync Wallet from DB
