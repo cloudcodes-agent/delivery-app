@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserRole, User } from '../types';
-import { supabase } from '../supabaseClient';
+import { login, register } from '../src/api';
 
 interface AuthPortalProps {
   onAuth: (user: User) => void;
@@ -27,23 +27,9 @@ const AuthPortal: React.FC<AuthPortalProps> = ({ onAuth, existingUsers, onSignup
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        await login(email, password);
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name, role }
-          }
-        });
-        if (error) throw error;
-        if (data.user && !data.session) {
-          setError(t.checkEmail);
-        }
+        await register(email, name || email.split('@')[0], password);
       }
     } catch (err: any) {
       setError(err.message);
